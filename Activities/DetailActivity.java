@@ -3,17 +3,23 @@ package jfkdevelopers.navdrawertestapp.Activities;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.graphics.Typeface;
+import android.media.Rating;
 import android.os.Bundle;
 import android.support.design.widget.CollapsingToolbarLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
+import com.iarcuschin.simpleratingbar.SimpleRatingBar;
 
+import jfkdevelopers.navdrawertestapp.Database.DatabaseHandler;
 import jfkdevelopers.navdrawertestapp.Interfaces.RestApi;
 import jfkdevelopers.navdrawertestapp.Objects.Movie;
 import jfkdevelopers.navdrawertestapp.R;
@@ -24,6 +30,8 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class DetailActivity extends AppCompatActivity {
     private final Context context = this;
+    public com.iarcuschin.simpleratingbar.SimpleRatingBar ratingBar;
+    private DatabaseHandler db;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -32,9 +40,29 @@ public class DetailActivity extends AppCompatActivity {
         setSupportActionBar(toolbar);
         if(getSupportActionBar()!=null) getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 
-        int id = getIntent().getIntExtra("id",0);
+        final int id = getIntent().getIntExtra("id",0);
         getMovieDetails(id);
+
+        ratingBar = (SimpleRatingBar) findViewById(R.id.userRating);
+        db = new DatabaseHandler(this);
+        ratingBar.setRating(db.getRating(id));
+        int src = getIntent().getIntExtra("src",0);
+        if (src==0) ratingBar.setVisibility(View.GONE);
+        else ratingBar.setOnRatingBarChangeListener(new SimpleRatingBar.OnRatingBarChangeListener() {
+            @Override
+            public void onRatingChanged(SimpleRatingBar simpleRatingBar, float rating, boolean fromUser) {
+                db.rateMovie(id,rating);
+            }
+        });
     }
+
+   /* @Override
+    public boolean onCreateOptionsMenu(Menu menu)
+    {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.menu_detail, menu);
+        return true;
+    }*/
 
     @Override
     public boolean onOptionsItemSelected(MenuItem menuItem) {

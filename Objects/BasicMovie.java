@@ -11,7 +11,6 @@ import java.util.List;
 
 public class BasicMovie implements Serializable, Parcelable
 {
-
     @SerializedName("poster_path")
     private String posterPath;
     @SerializedName("adult")
@@ -40,6 +39,8 @@ public class BasicMovie implements Serializable, Parcelable
     private boolean video;
     @SerializedName("vote_average")
     private double voteAverage;
+    @SerializedName("user_rating")
+    private float userRating;
 
     @Override
     public int describeContents() {
@@ -62,6 +63,7 @@ public class BasicMovie implements Serializable, Parcelable
         dest.writeInt(this.voteCount);
         dest.writeByte(this.video ? (byte) 1 : (byte) 0);
         dest.writeDouble(this.voteAverage);
+        dest.writeFloat(this.userRating);
     }
 
     public BasicMovie() {
@@ -91,6 +93,14 @@ public class BasicMovie implements Serializable, Parcelable
         return popularity;
     }
 
+    public float getUserRating() {
+        return userRating;
+    }
+
+    public void setUserRating(float userRating) {
+        this.userRating = userRating;
+    }
+
     protected BasicMovie(Parcel in) {
         this.posterPath = in.readString();
         this.adult = in.readByte() != 0;
@@ -107,6 +117,7 @@ public class BasicMovie implements Serializable, Parcelable
         this.voteCount = in.readInt();
         this.video = in.readByte() != 0;
         this.voteAverage = in.readDouble();
+        this.userRating = in.readFloat();
     }
 
     public static final Creator<BasicMovie> CREATOR = new Creator<BasicMovie>() {

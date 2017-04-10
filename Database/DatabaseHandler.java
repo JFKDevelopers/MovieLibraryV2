@@ -22,6 +22,7 @@ public class DatabaseHandler extends SQLiteOpenHelper{
     //table column names
     private static final String KEY_ID = "Id";
     private static final String KEY_JSON = "JSON";
+    private static final String KEY_RATING = "UserRating";
 
     public DatabaseHandler(Context context){
         super(context,DATABASE_NAME,null,DATABASE_VERSION);
@@ -32,7 +33,8 @@ public class DatabaseHandler extends SQLiteOpenHelper{
     public void onCreate(SQLiteDatabase db) {
         String CREATE_MOVIES_TABLE = "CREATE TABLE " + TABLE_MOVIES + " ("
                 + KEY_ID + " INTEGER PRIMARY KEY, "
-                + KEY_JSON + " STRING" + ")";
+                + KEY_JSON + " STRING, "
+                + KEY_RATING + " FLOAT" + ")";
         db.execSQL(CREATE_MOVIES_TABLE);
     }
 
@@ -52,6 +54,7 @@ public class DatabaseHandler extends SQLiteOpenHelper{
         ContentValues values = new ContentValues();
         values.put(KEY_ID, id);
         values.put(KEY_JSON, json);
+        values.put(KEY_RATING, 0);
         //Inserting row
         db.insert(TABLE_MOVIES, null, values);
         db.close(); //closing database connection
@@ -118,6 +121,11 @@ public class DatabaseHandler extends SQLiteOpenHelper{
                 new String[] { movie.getImdbID()});
     }*/
 
+    public void rateMovie(int id, float userRating){
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.execSQL("UPDATE movies SET userRating="+userRating+" WHERE id="+id+"");
+    }
+
     //deleting single movie
     public void deleteMovie(BasicMovie movie) {
         SQLiteDatabase db = this.getWritableDatabase();
@@ -159,5 +167,22 @@ public class DatabaseHandler extends SQLiteOpenHelper{
         }
         cursor.close();
         return tableString;
+    }
+
+    public float getRating(int id){
+        SQLiteDatabase db = this.getWritableDatabase();
+        String query = "SELECT UserRating FROM movies WHERE Id="+id;
+        float userRating = 0;
+        Cursor cursor = null;
+        try {
+            cursor = db.rawQuery(query, null);
+            if(cursor.getCount()>0){
+                cursor.moveToFirst();
+                userRating = cursor.getFloat(cursor.getColumnIndex("UserRating"));
+            }
+            return userRating;
+        }finally{
+            if(cursor!=null) cursor.close();
+        }
     }
 }

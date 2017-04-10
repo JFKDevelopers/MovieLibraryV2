@@ -19,9 +19,19 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.GenericTypeIndicator;
+import com.google.firebase.database.ValueEventListener;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
 
 import jfkdevelopers.navdrawertestapp.Adapters.MovieAdapter;
 import jfkdevelopers.navdrawertestapp.Database.DatabaseHandler;
@@ -47,6 +57,10 @@ public class NowPlayingFragment extends Fragment {
     private int totalPages;
     private int currPage;
     private RecyclerView rv;
+    private DatabaseReference mDatabase;
+    private FirebaseAuth mFirebaseAuth;
+    private FirebaseUser mFirebaseUser;
+    private List<Integer> movieIds;
     public NowPlayingFragment() {
     }
 
@@ -59,6 +73,11 @@ public class NowPlayingFragment extends Fragment {
         else Toast.makeText(getActivity(),"No Internet Connection",Toast.LENGTH_LONG).show();
         db = new DatabaseHandler(getActivity());
         mAdapter = new MovieAdapter(getActivity(),nowPlayingMovies, this);
+
+        mDatabase = FirebaseDatabase.getInstance().getReference();
+        mFirebaseAuth = FirebaseAuth.getInstance();
+        mFirebaseUser = mFirebaseAuth.getCurrentUser();
+
         setHasOptionsMenu(true);
     }
 
@@ -136,9 +155,27 @@ public class NowPlayingFragment extends Fragment {
         return TAG;
     }
 
-    public void addMovie(BasicMovie m){
+    public void addMovie(final BasicMovie m){
+        movieIds = new ArrayList<>();
+        mDatabase.child("users").child(mFirebaseUser.getUid()).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                GenericTypeIndicator<List<Integer>> t = new GenericTypeIndicator<List<Integer>>() {};
+                if(dataSnapshot.hasChild("movieIDs"))
+                    movieIds = dataSnapshot.child("movieIDs").getValue(t);
+
+                movieIds.add(m.getId());
+                mDatabase.child("users").child(mFirebaseUser.getUid()).child("movieIDs").setValue(movieIds);
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+
+            }
+        });
         if(!db.movieInTable(m.getId())) {
             db.addMovie(m.getId(), m.toJsonString());
+
             //Toast.makeText(getActivity(),m.getTitle() + " added",Toast.LENGTH_LONG).show();
             Snackbar.make(rv,m.getTitle() + " added",Snackbar.LENGTH_LONG).show();
         }

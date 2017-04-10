@@ -27,6 +27,15 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.ChildEventListener;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.Query;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -39,7 +48,7 @@ import jfkdevelopers.navdrawertestapp.R;
 public class MovieFragment extends Fragment implements SearchView.OnQueryTextListener{
     private SharedPreferences sharedPreferences;
     private static final String MyPREFERENCES = "MyPrefs";
-    private final CharSequence[] sortOptions = {"Title A-Z","Title Z-A","Year"};
+    private final CharSequence[] sortOptions = {"Title (A-Z)","Title (Z-A)","Year (1900-2017)","Year (2017-1900)","Rating (5-0)","Rating (0-5)"};
     private int sortPref;
 
     // TODO: Customize parameters
@@ -51,6 +60,9 @@ public class MovieFragment extends Fragment implements SearchView.OnQueryTextLis
     private MovieAdapter mAdapter;
     private RecyclerView rv;
     private DatabaseHandler db;
+    private DatabaseReference mDatabase;
+    private FirebaseAuth mFirebaseAuth;
+    private FirebaseUser mFirebaseUser;
     public MovieFragment() {}
     /*Context mContext;*/
     @Override
@@ -63,6 +75,9 @@ public class MovieFragment extends Fragment implements SearchView.OnQueryTextLis
         sharedPreferences = getActivity().getSharedPreferences(MyPREFERENCES,Context.MODE_PRIVATE);
         sortPref = sharedPreferences.getInt("sortPref",0);
         if(movies.size()>1) sortMovies(sortPref);
+        mDatabase = FirebaseDatabase.getInstance().getReference();
+        mFirebaseAuth = FirebaseAuth.getInstance();
+        mFirebaseUser = mFirebaseAuth.getCurrentUser();
     }
 
     @Override
@@ -327,48 +342,14 @@ public class MovieFragment extends Fragment implements SearchView.OnQueryTextLis
 
             dialog.setSingleChoiceItems(sortOptions,sortPref,new DialogInterface.OnClickListener(){
                 public void onClick(DialogInterface dialog, int item){
-                    switch(item){
-                        case 0: //Sort A-Z
-                            Collections.sort(movies,new Comparator<BasicMovie>(){
-                                @Override
-                                public int compare(BasicMovie m1, BasicMovie m2){
-                                    return m1.getTitle().compareTo(m2.getTitle());
-                                }
-                            });
-                            editor.putInt("sortPref",0);
-                            sortPref = 0;
-                            break;
-                        case 1: //Sort Z-A
-                            Collections.sort(movies,new Comparator<BasicMovie>(){
-                                @Override
-                                public int compare(BasicMovie m1, BasicMovie m2){
-                                    return m2.getTitle().compareTo(m1.getTitle());
-                                }
-                            });
-                            editor.putInt("sortPref",1);
-                            sortPref = 1;
-                            break;
-                        case 2: //Sort by year
-                            Collections.sort(movies,new Comparator<BasicMovie>(){
-                                @Override
-                                public int compare(BasicMovie m1, BasicMovie m2){
-                                    String y1 = m1.getReleaseDate().substring(0,4);
-                                    String y2 = m2.getReleaseDate().substring(0,4);
-                                    if(!y1.equals(y2)) return y1.compareTo(y2);
-                                    return y1.compareTo(y2);
-                                }
-                            });
-                            editor.putInt("sortPref",2);
-                            sortPref = 2;
-                            break;
-                        default:
-                            break;
-                    }
+                    sortMovies(item);
+                    editor.putInt("sortPref",item);
                     editor.apply();
                     dialog.dismiss();
                     db.deleteAllMovies();
                     for(BasicMovie m:movies){
                         db.addMovie(m.getId(),m.toJsonString());
+                        db.rateMovie(m.getId(),m.getUserRating());
                     }
                     mAdapter.notifyDataSetChanged();
                 }
@@ -384,6 +365,7 @@ public class MovieFragment extends Fragment implements SearchView.OnQueryTextLis
                     new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
+                            mDatabase.child("users").child(mFirebaseUser.getUid()).child("movieIDs").removeValue();
                             movies.clear();
                             db.deleteAllMovies();
                             mAdapter.notifyDataSetChanged();
@@ -411,6 +393,7 @@ public class MovieFragment extends Fragment implements SearchView.OnQueryTextLis
                         return m1.getTitle().compareTo(m2.getTitle());
                     }
                 });
+                sortPref = 0;
                 break;
             case 1: //Sort Z-A
                 Collections.sort(movies,new Comparator<BasicMovie>(){
@@ -419,8 +402,9 @@ public class MovieFragment extends Fragment implements SearchView.OnQueryTextLis
                         return m2.getTitle().compareTo(m1.getTitle());
                     }
                 });
+                sortPref = 1;
                 break;
-            case 2: //Sort by year
+            case 2: //Sort by year ascending
                 Collections.sort(movies,new Comparator<BasicMovie>(){
                     @Override
                     public int compare(BasicMovie m1, BasicMovie m2){
@@ -430,12 +414,56 @@ public class MovieFragment extends Fragment implements SearchView.OnQueryTextLis
                         return y1.compareTo(y2);
                     }
                 });
+                sortPref = 2;
+                break;
+            case 3: //Sort by year descending
+                Collections.sort(movies,new Comparator<BasicMovie>(){
+                    @Override
+                    public int compare(BasicMovie m1, BasicMovie m2){
+                        String y1 = m1.getReleaseDate().substring(0,4);
+                        String y2 = m2.getReleaseDate().substring(0,4);
+                        if(!y2.equals(y1)) return y2.compareTo(y1);
+                        return y2.compareTo(y1);
+                    }
+                });
+                sortPref = 3;
+                break;
+            case 4: //Sort by rating descending
+                Collections.sort(movies,new Comparator<BasicMovie>(){
+                    @Override
+                    public int compare(BasicMovie m1, BasicMovie m2){
+                        String r1 = Float.toString(db.getRating(m1.getId()));
+                        String r2 = Float.toString(db.getRating(m2.getId()));
+                        if(!r2.equals(r1)) return r2.compareTo(r1);
+                        return r2.compareTo(r1);
+                    }
+                });
+                sortPref = 4;
+                break;
+            case 5: //Sort by rating ascending
+                Collections.sort(movies,new Comparator<BasicMovie>(){
+                    @Override
+                    public int compare(BasicMovie m1, BasicMovie m2){
+                        String r1 = Float.toString(db.getRating(m1.getId()));
+                        String r2 = Float.toString(db.getRating(m2.getId()));
+                        if(!r1.equals(r2)) return r1.compareTo(r2);
+                        return r1.compareTo(r2);
+                    }
+                });
+                sortPref = 5;
                 break;
             default:
                 break;
         }
     }
+
     public int getSortPref(){
         return sortPref;
+    }
+
+    @Override
+    public void onResume(){
+        super.onResume();
+        mAdapter.notifyDataSetChanged();
     }
 }

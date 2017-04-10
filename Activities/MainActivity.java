@@ -8,6 +8,7 @@ import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.provider.ContactsContract;
 import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.NavigationView;
@@ -26,7 +27,15 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.Toast;
+
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
 
@@ -36,12 +45,15 @@ import jfkdevelopers.navdrawertestapp.Fragments.MovieFragment;
 import jfkdevelopers.navdrawertestapp.Fragments.NowPlayingFragment;
 import jfkdevelopers.navdrawertestapp.Fragments.PopularFragment;
 import jfkdevelopers.navdrawertestapp.Objects.BasicMovie;
+import jfkdevelopers.navdrawertestapp.Objects.User;
 import jfkdevelopers.navdrawertestapp.R;
+import jfkdevelopers.navdrawertestapp.SignInActivities.EmailPasswordActivity;
+import jfkdevelopers.navdrawertestapp.SignInActivities.GoogleSignInActivity;
 
 public class MainActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener,
         MovieFragment.OnListFragmentInteractionListener, PopularFragment.OnListFragmentInteractionListener,
         NowPlayingFragment.OnListFragmentInteractionListener{
-    private static final String TAG = MainActivity.class.getSimpleName();
+
     private static final String EXTRA_MESSAGE = "com.jfkdevelopers.navdrawertestapp.MESSAGE";
     private Toolbar toolbar;
     private FloatingActionButton fab;
@@ -52,12 +64,21 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     private ArrayList<BasicMovie> movies;
     private final ArrayList<Integer> backStackIndex = new ArrayList<>();
     private boolean doubleBackToExitPressedOnce = false;
+    private DatabaseReference mDatabase;
+    private FirebaseAuth mFirebaseAuth;
+    private FirebaseUser mFirebaseUser;
+    // ...
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+
+        mDatabase = FirebaseDatabase.getInstance().getReference();
+        mFirebaseAuth = FirebaseAuth.getInstance();
+        mFirebaseUser = mFirebaseAuth.getCurrentUser();
+
         db = new DatabaseHandler(this);
         getData();
         fab = (FloatingActionButton) findViewById(R.id.fab);
@@ -123,7 +144,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
         //on initiate we want to load movie fragment
         if(savedInstanceState==null) {
-            loadFragment();
+            loadFragment(false);
             navigationView.getMenu().getItem(0).setChecked(true);
         }
     }
@@ -173,7 +194,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                     if(!db.movieInTable(m.getId())) {
                         movies.add(m);
                         db.addMovie(m.getId(), m.toJsonString());
-                        Log.e(TAG,m.getId()+" "+m.toJsonString());
                         count++;
                     }
                 }
@@ -181,7 +201,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 Snackbar.make(findViewById(android.R.id.content),count+" movies added",Snackbar.LENGTH_LONG)
                         .show();
                         //.setAction("Undo",)
-                loadFragment();
+                loadFragment(false);
             }
         }
     }
@@ -197,7 +217,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         return true;
     }
 
-    private void loadFragment(){
+    private void loadFragment(final boolean onResume){
         if(navItemIndex==0){
             fab.show();
         }
@@ -213,6 +233,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
               if(navItemIndex==0){
                   bundle.putParcelableArrayList("movies",movies);
                   fragment.setArguments(bundle);
+                  String title = (String)getResources().getText(R.string.title_main) + " (" + movies.size()+")";
+                  toolbar.setTitle(title);
               }
               else if(navItemIndex==1){
                   toolbar.setTitle(R.string.popular);
@@ -220,8 +242,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
               else if(navItemIndex==2){
                   toolbar.setTitle(R.string.now_playing);
               }
-              backStackIndex.add(navItemIndex);
-              Log.e("size",backStackIndex.size()+"");
+              if (!onResume) backStackIndex.add(navItemIndex);
               FragmentTransaction fragmentTransaction = getSupportFragmentManager().beginTransaction();
               fragmentTransaction.setCustomAnimations(android.R.anim.fade_in,android.R.anim.fade_out);
               fragmentTransaction.replace(R.id.frame,fragment,CURRENT_TAG);
@@ -250,21 +271,29 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 getData();
                 navItemIndex = 0;
                 CURRENT_TAG = MovieFragment.getFragTag();
-                toolbar.setTitle(R.string.title_main);
-                loadFragment();
+                loadFragment(false);
             }
         } else if (id == R.id.nav_popular || id == 1) {
             if(navItemIndex!=1) {
                 navItemIndex = 1;
                 CURRENT_TAG = PopularFragment.getFragTag();
-                loadFragment();
+                loadFragment(false);
             }
         } else if (id == R.id.nav_nowplaying || id == 2) {
             if(navItemIndex!=2) {
                 navItemIndex = 2;
                 CURRENT_TAG = NowPlayingFragment.getFragTag();
-                loadFragment();
+                loadFragment(false);
             }
+        }
+        else if (id == R.id.nav_googlesignin){
+            startActivity(new Intent(context,GoogleSignInActivity.class));
+        }
+        else if (id == R.id.nav_emailsignin){
+            startActivity(new Intent(context, EmailPasswordActivity.class));
+        }
+        else{
+            Log.e("Nav Drawer","Error no code for selected item");
         }
     }
 
@@ -291,5 +320,16 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
     private void getData(){
         movies = db.getAllMovies();
+        for(BasicMovie bm:movies){
+            bm.setUserRating(db.getRating(bm.getId()));
+        }
     }
+
+    @Override
+    public void onResume(){
+        super.onResume();
+        getData();
+        loadFragment(true);
+    }
+
 }

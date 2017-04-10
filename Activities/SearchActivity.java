@@ -16,9 +16,19 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.GenericTypeIndicator;
+import com.google.firebase.database.ValueEventListener;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
 
 import jfkdevelopers.navdrawertestapp.Adapters.MovieAdapter;
 import jfkdevelopers.navdrawertestapp.Database.DatabaseHandler;
@@ -44,10 +54,18 @@ public class SearchActivity extends AppCompatActivity implements MovieFragment.O
     private final Context context = this;
     private DatabaseHandler db;
     private RecyclerView rv;
+    private DatabaseReference mDatabase;
+    private FirebaseAuth mFirebaseAuth;
+    private FirebaseUser mFirebaseUser;
+    private List<Integer> movieIds;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_search);
+
+        mDatabase = FirebaseDatabase.getInstance().getReference();
+        mFirebaseAuth = FirebaseAuth.getInstance();
+        mFirebaseUser = mFirebaseAuth.getCurrentUser();
 
         searchTitle = getIntent().getStringExtra("com.jfkdevelopers.navdrawertestapp.MESSAGE").trim();
         searchTitle = searchTitle.replace(" ", "+");
@@ -78,9 +96,27 @@ public class SearchActivity extends AppCompatActivity implements MovieFragment.O
         if(connectedToNetwork()) searchMovies(page);
     }
 
-    public void addToSelected(BasicMovie m){
+    public void addToSelected(final BasicMovie m){
+        movieIds = new ArrayList<>();
+        mDatabase.child("users").child(mFirebaseUser.getUid()).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                GenericTypeIndicator<List<Integer>> t = new GenericTypeIndicator<List<Integer>>() {};
+                if(dataSnapshot.hasChild("movieIDs"))
+                    movieIds = dataSnapshot.child("movieIDs").getValue(t);
+
+                movieIds.add(m.getId());
+                mDatabase.child("users").child(mFirebaseUser.getUid()).child("movieIDs").setValue(movieIds);
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+
+            }
+        });
         if(!db.movieInTable(m.getId())) {
             db.addMovie(m.getId(), m.toJsonString());
+
             Snackbar.make(rv,m.getTitle() + " added",Snackbar.LENGTH_LONG).show();
         }
         else

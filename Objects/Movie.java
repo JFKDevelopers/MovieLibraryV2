@@ -63,13 +63,15 @@ public class Movie implements Serializable, Parcelable {
     private int voteCount;
     @SerializedName("credits")
     private final Credits credits;
+    @SerializedName("user_rating")
+    private float userRating;
 	
     public Movie(boolean adult, String backdropPath, BelongsToCollection belongsToCollection, int budget,
                  List<Genres> genres, String homepage, int id, String imdbId, String originalLanguage,
                  String originalTitle, String overview, double popularity, String posterPath,
                  List<ProductionCompanies> productionCompanies, List<ProductionCountries> productionCountries,
                  String releaseDate, int revenue, int runtime, List<SpokenLanguages> spokenLanguages,
-                 String status, String tagline, String title, boolean video, double voteAverage, int voteCount, Credits credits) {
+                 String status, String tagline, String title, boolean video, double voteAverage, int voteCount, Credits credits, float userRating) {
         this.adult = adult;
         this.backdropPath = backdropPath;
         this.belongsToCollection = belongsToCollection;
@@ -96,6 +98,7 @@ public class Movie implements Serializable, Parcelable {
         this.voteAverage = voteAverage;
         this.voteCount = voteCount;
         this.credits = credits;
+        this.userRating = userRating;
     }
 
     public String getBackdropPath() {
@@ -150,6 +153,10 @@ public class Movie implements Serializable, Parcelable {
         return credits.getCrew();
     }
 
+    public float getUserRating() {
+        return userRating;
+    }
+
     public String getDirector(){
         for(Crew c:getCrew()){
             if(c.job.equals("Director")){
@@ -186,6 +193,7 @@ public class Movie implements Serializable, Parcelable {
                 ", video=" + video +
                 ", voteAverage=" + voteAverage +
                 ", voteCount=" + voteCount +
+                ", userRating=" + userRating +
                 '}';
     }
 
@@ -438,6 +446,7 @@ public class Movie implements Serializable, Parcelable {
         dest.writeDouble(this.voteAverage);
         dest.writeInt(this.voteCount);
         dest.writeSerializable(this.credits);
+        dest.writeFloat(this.userRating);
     }
 
     private Movie(Parcel in) {
@@ -471,6 +480,7 @@ public class Movie implements Serializable, Parcelable {
         this.voteAverage = in.readDouble();
         this.voteCount = in.readInt();
         this.credits = (Credits) in.readSerializable();
+        this.userRating = in.readFloat();
     }
 
     public static final Parcelable.Creator<Movie> CREATOR = new Parcelable.Creator<Movie>() {
