@@ -6,7 +6,6 @@ import android.support.annotation.Nullable;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;
 import android.util.SparseArray;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -18,12 +17,8 @@ import android.widget.TextView;
 import com.bumptech.glide.Glide;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.GenericTypeIndicator;
-import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,16 +31,15 @@ import jfkdevelopers.navdrawertestapp.Fragments.MovieFragment;
 import jfkdevelopers.navdrawertestapp.Fragments.NowPlayingFragment;
 import jfkdevelopers.navdrawertestapp.Fragments.PopularFragment;
 import jfkdevelopers.navdrawertestapp.Objects.BasicMovie;
-import jfkdevelopers.navdrawertestapp.Objects.Movie;
 import jfkdevelopers.navdrawertestapp.R;
 
-public class MovieAdapter extends RecyclerView.Adapter<MovieAdapter.ViewHolder>{
+public class BasicMovieAdapter extends RecyclerView.Adapter<BasicMovieAdapter.ViewHolder>{
     public final static String SER_KEY = "com.jfkdevelopers.navdrawertestapp.ser";
     private static final int PENDING_REMOVAL_TIMEOUT = 3000; //3 sec
-    private List<Movie> movies;
-    private final List<Movie> moviesPendingRemoval;
+    private List<BasicMovie> movies;
+    private final List<BasicMovie> moviesPendingRemoval;
     private final Context context;
-    private final SparseArray<Movie> movieMap = new SparseArray<>();
+    private final SparseArray<BasicMovie> movieMap = new SparseArray<>();
     private final SparseArray<String> genreMap = new SparseArray<>();
     private final Fragment fragment;
     private DatabaseHandler db;
@@ -53,7 +47,7 @@ public class MovieAdapter extends RecyclerView.Adapter<MovieAdapter.ViewHolder>{
     private FirebaseAuth mFirebaseAuth;
     private FirebaseUser mFirebaseUser;
     private List<Integer> movieIds;
-    public MovieAdapter(Context context, ArrayList<Movie> movies, @Nullable Fragment fragment) {
+    public BasicMovieAdapter(Context context, ArrayList<BasicMovie> movies, @Nullable Fragment fragment) {
         this.movies = movies;
         this.context = context;
         this.moviesPendingRemoval = new ArrayList<>();
@@ -102,6 +96,20 @@ public class MovieAdapter extends RecyclerView.Adapter<MovieAdapter.ViewHolder>{
             //Integer position = (Integer) view.getTag();
             switch(view.getId()) {
                 case R.id.addButton:
+                    if(context instanceof SearchActivity){
+                        ((SearchActivity)context).addToSelected(movieMap.get(id));
+                        removeAt(getAdapterPosition());
+                    }
+                    else if(fragment instanceof PopularFragment){
+                        BasicMovie m = movies.get(getAdapterPosition());
+                        ((PopularFragment) fragment).addMovie(m);
+                        removeAt(getAdapterPosition());
+                    }
+                    else if(fragment instanceof NowPlayingFragment){
+                        BasicMovie m = movies.get(getAdapterPosition());
+                        ((NowPlayingFragment) fragment).addMovie(m);
+                        removeAt(getAdapterPosition());
+                    }
                     break;
 				default:
 					Intent intent = new Intent(context, DetailActivity.class);
@@ -120,7 +128,7 @@ public class MovieAdapter extends RecyclerView.Adapter<MovieAdapter.ViewHolder>{
     }
 
     @Override
-    public MovieAdapter.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType){
+    public BasicMovieAdapter.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType){
         View v = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.list_item, parent, false);
         return new ViewHolder(v);
@@ -128,7 +136,7 @@ public class MovieAdapter extends RecyclerView.Adapter<MovieAdapter.ViewHolder>{
 
     @Override
     public void onBindViewHolder(ViewHolder holder, int position){
-        final Movie movie = movies.get(position);
+        final BasicMovie movie = movies.get(position);
         try {
             Glide.with(context)
                     .load("https://image.tmdb.org/t/p/w500" + movie.getPosterPath())
@@ -141,9 +149,9 @@ public class MovieAdapter extends RecyclerView.Adapter<MovieAdapter.ViewHolder>{
             else holder.movieYear.setText("n/a");
             setGenres();
             String genres = "";
-            /*for(Integer i:movie.getGenreIds()){
+            for(Integer i:movie.getGenreIds()){
                 genres = genres + genreMap.get(i) + ", ";
-            }*/
+            }
             if(genres.length()>2) genres = genres.substring(0,genres.length()-2);
             holder.movieGenre.setText(genres);
             holder.id = movie.getId();
@@ -177,14 +185,14 @@ public class MovieAdapter extends RecyclerView.Adapter<MovieAdapter.ViewHolder>{
         return movies.size();
     }
 
-    public void remove(final int position, DatabaseReference db, final RecyclerView rv){
+    public void remove(final int position, final DatabaseHandler db, final RecyclerView rv){
 
-        mDatabase = db;
+        mDatabase = FirebaseDatabase.getInstance().getReference();
         mFirebaseAuth = FirebaseAuth.getInstance();
         mFirebaseUser = mFirebaseAuth.getCurrentUser();
         movieIds = new ArrayList<>();
 
-        final Movie movie = movies.get(position);
+        final BasicMovie movie = movies.get(position);
         if(!moviesPendingRemoval.contains(movie)){
             moviesPendingRemoval.add(movie);
         }
@@ -198,9 +206,9 @@ public class MovieAdapter extends RecyclerView.Adapter<MovieAdapter.ViewHolder>{
                     snackbar.setAction(context.getString(R.string.undo),new View.OnClickListener(){
                         @Override
                         public void onClick(View view) {
-                            for(Movie m : moviesPendingRemoval) {
+                            for(BasicMovie m : moviesPendingRemoval) {
                                 movies.add(position, m);
-                                //db.addMovie(m.getId(), m.toJsonString());
+                                db.addMovie(m.getId(), m.toJsonString());
                                 notifyDataSetChanged();
                                 rv.scrollToPosition(position);
                             }
@@ -210,12 +218,13 @@ public class MovieAdapter extends RecyclerView.Adapter<MovieAdapter.ViewHolder>{
                     });
             snackbar.show();
             mDatabase.child("users").child(mFirebaseUser.getUid()).child("movieIDs").child(Integer.toString(movies.get(position).getId())).removeValue();
+            db.deleteMovie(movies.get(position));
             movies.remove(position);
             notifyItemRemoved(position);
         }
     }
 
-    public void updateList(List<Movie> mList){
+    public void updateList(List<BasicMovie> mList){
         movies = mList;
         notifyDataSetChanged();
     }

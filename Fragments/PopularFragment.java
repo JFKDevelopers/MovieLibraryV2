@@ -33,11 +33,13 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+import jfkdevelopers.navdrawertestapp.Adapters.BasicMovieAdapter;
 import jfkdevelopers.navdrawertestapp.Adapters.MovieAdapter;
 import jfkdevelopers.navdrawertestapp.Database.DatabaseHandler;
 import jfkdevelopers.navdrawertestapp.Interfaces.EndlessRecyclerViewScrollListener;
 import jfkdevelopers.navdrawertestapp.Interfaces.RestApi;
 import jfkdevelopers.navdrawertestapp.Objects.BasicMovie;
+import jfkdevelopers.navdrawertestapp.Objects.Movie;
 import jfkdevelopers.navdrawertestapp.Objects.MovieResponse;
 import jfkdevelopers.navdrawertestapp.R;
 import retrofit2.Call;
@@ -53,7 +55,7 @@ public class PopularFragment extends Fragment {
 
     private static final String TAG = "PopularFragment";
     private ArrayList<BasicMovie> popularMovies;
-    private MovieAdapter mAdapter;
+    private BasicMovieAdapter mAdapter;
     private DatabaseHandler db;
     private int totalPages;
     private int currPage;
@@ -73,7 +75,7 @@ public class PopularFragment extends Fragment {
         if(connectedToNetwork()) getMovies();
         else Toast.makeText(getActivity(),"No Internet Connection",Toast.LENGTH_LONG).show();
         db = new DatabaseHandler(getActivity());
-        mAdapter = new MovieAdapter(getActivity(),popularMovies, this);
+        mAdapter = new BasicMovieAdapter(getActivity(),popularMovies, this);
 
         mDatabase = FirebaseDatabase.getInstance().getReference();
         mFirebaseAuth = FirebaseAuth.getInstance();
@@ -116,7 +118,7 @@ public class PopularFragment extends Fragment {
                 return m2Pop.compareTo(m1Pop);
             }
         });
-        mAdapter = new MovieAdapter(context, popularMovies, this);
+        mAdapter = new BasicMovieAdapter(context, popularMovies, this);
         rv.setAdapter(mAdapter);
         setHasOptionsMenu(true);
         return view;
@@ -156,32 +158,44 @@ public class PopularFragment extends Fragment {
     }
 
     public void addMovie(final BasicMovie m){
-        movieIds = new ArrayList<>();
-        mDatabase.child("users").child(mFirebaseUser.getUid()).addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                GenericTypeIndicator<List<Integer>> t = new GenericTypeIndicator<List<Integer>>() {};
-                if(dataSnapshot.hasChild("movieIDs"))
-                    movieIds = dataSnapshot.child("movieIDs").getValue(t);
+        if(mDatabase!=null) {
+            //check if movie exists in database, if not then add it
+            mDatabase.child("movies").addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot snapshot) {
+                    if (!snapshot.hasChild(Integer.toString(m.getId()))) {
+                        getMovieDetails(m.getId());
+                    }
+                }
 
-                movieIds.add(m.getId());
-                mDatabase.child("users").child(mFirebaseUser.getUid()).child("movieIDs").setValue(movieIds);
-            }
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+                    Log.e("error adding to db", databaseError.toString());
+                }
+            });
 
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
+            //check if user already has this movie, if not then add it
+            mDatabase.child("users").child(mFirebaseUser.getUid()).child("movieIDs").addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot snapshot) {
+                    if (!snapshot.hasChild(Integer.toString(m.getId()))) {
+                        mDatabase.child("users").child(mFirebaseUser.getUid()).child("movieIDs").child(Integer.toString(m.getId())).setValue(0);
+                        Snackbar.make(rv,m.getTitle() + " added",Snackbar.LENGTH_LONG).show();
+                    }
+                    else{
+                        Snackbar.make(rv,m.getTitle()+" is already in your library",Snackbar.LENGTH_LONG).show();
+                    }
+                }
 
-            }
-        });
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+                    Log.e("error adding to user", databaseError.toString());
+                }
+            });
+        }
 
         if(!db.movieInTable(m.getId())) {
             db.addMovie(m.getId(), m.toJsonString());
-            //Toast.makeText(getActivity(),m.getTitle() + " added",Toast.LENGTH_LONG).show();
-            Snackbar.make(rv,m.getTitle() + " added",Snackbar.LENGTH_LONG).show();
-        }
-        else{
-            Snackbar.make(rv,m.getTitle()+" is already in your library",Snackbar.LENGTH_LONG).show();
-            //Toast.makeText(getActivity(),,Toast.LENGTH_LONG).show();
         }
     }
 
@@ -235,4 +249,26 @@ public class PopularFragment extends Fragment {
         return connected;
     }
 
+    private void getMovieDetails(final int id){
+        String BASE_URL = "http://api.themoviedb.org/3/";
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl(BASE_URL)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build();
+
+        final RestApi service = retrofit.create(RestApi.class);
+        Call<Movie> movieCall = service.getMovie(id);
+        movieCall.enqueue(new Callback<Movie>() {
+            @Override
+            public void onResponse(Call<Movie> call, retrofit2.Response<Movie> response) {
+                Movie movie = response.body();
+                mDatabase.child("movies").child(Integer.toString(id)).setValue(movie);
+            }
+
+            @Override
+            public void onFailure(Call<Movie> call, Throwable t) {
+                Toast.makeText(getActivity(),"Error getting movie details. Please try again.",Toast.LENGTH_LONG).show();
+            }
+        });
+    }
 }

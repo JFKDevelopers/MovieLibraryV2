@@ -17,6 +17,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 import com.iarcuschin.simpleratingbar.SimpleRatingBar;
 
 import jfkdevelopers.navdrawertestapp.Database.DatabaseHandler;
@@ -32,6 +36,10 @@ public class DetailActivity extends AppCompatActivity {
     private final Context context = this;
     public com.iarcuschin.simpleratingbar.SimpleRatingBar ratingBar;
     private DatabaseHandler db;
+    private DatabaseReference mDatabase;
+    private FirebaseAuth mFirebaseAuth;
+    private FirebaseUser mFirebaseUser;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -43,6 +51,10 @@ public class DetailActivity extends AppCompatActivity {
         final int id = getIntent().getIntExtra("id",0);
         getMovieDetails(id);
 
+        mDatabase = FirebaseDatabase.getInstance().getReference();
+        mFirebaseAuth = FirebaseAuth.getInstance();
+        mFirebaseUser = mFirebaseAuth.getCurrentUser();
+
         ratingBar = (SimpleRatingBar) findViewById(R.id.userRating);
         db = new DatabaseHandler(this);
         ratingBar.setRating(db.getRating(id));
@@ -51,6 +63,7 @@ public class DetailActivity extends AppCompatActivity {
         else ratingBar.setOnRatingBarChangeListener(new SimpleRatingBar.OnRatingBarChangeListener() {
             @Override
             public void onRatingChanged(SimpleRatingBar simpleRatingBar, float rating, boolean fromUser) {
+                mDatabase.child("users").child(mFirebaseUser.getUid()).child("movieIDs").child(Integer.toString(id)).setValue(rating);
                 db.rateMovie(id,rating);
             }
         });

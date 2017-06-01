@@ -18,7 +18,7 @@ public class Movie implements Serializable, Parcelable {
     @SerializedName("belongs_to_collection")
     private BelongsToCollection belongsToCollection;
     @SerializedName("budget")
-    private long budget;
+    private Long budget;
     @SerializedName("genres")
     private List<Genres> genres;
     @SerializedName("homepage")
@@ -64,9 +64,9 @@ public class Movie implements Serializable, Parcelable {
     @SerializedName("credits")
     private final Credits credits;
     @SerializedName("user_rating")
-    private float userRating;
-	
-    public Movie(boolean adult, String backdropPath, BelongsToCollection belongsToCollection, int budget,
+    public float userRating;
+
+    public Movie(boolean adult, String backdropPath, BelongsToCollection belongsToCollection, long budget,
                  List<Genres> genres, String homepage, int id, String imdbId, String originalLanguage,
                  String originalTitle, String overview, double popularity, String posterPath,
                  List<ProductionCompanies> productionCompanies, List<ProductionCountries> productionCountries,
@@ -99,6 +99,10 @@ public class Movie implements Serializable, Parcelable {
         this.voteCount = voteCount;
         this.credits = credits;
         this.userRating = userRating;
+    }
+
+    public Movie() {
+        this.credits = null;
     }
 
     public String getBackdropPath() {
@@ -153,10 +157,6 @@ public class Movie implements Serializable, Parcelable {
         return credits.getCrew();
     }
 
-    public float getUserRating() {
-        return userRating;
-    }
-
     public String getDirector(){
         for(Crew c:getCrew()){
             if(c.job.equals("Director")){
@@ -165,6 +165,75 @@ public class Movie implements Serializable, Parcelable {
         }
         return "N/A";
     }
+
+    public boolean isAdult() {
+        return adult;
+    }
+
+    public BelongsToCollection getBelongsToCollection() {
+        return belongsToCollection;
+    }
+
+    public Long getBudget() {
+        return budget;
+    }
+
+    public String getHomepage() {
+        return homepage;
+    }
+
+    public String getImdbId() {
+        return imdbId;
+    }
+
+    public String getOriginalLanguage() {
+        return originalLanguage;
+    }
+
+    public String getOriginalTitle() {
+        return originalTitle;
+    }
+
+    public double getPopularity() {
+        return popularity;
+    }
+
+    public List<ProductionCompanies> getProductionCompanies() {
+        return productionCompanies;
+    }
+
+    public List<ProductionCountries> getProductionCountries() {
+        return productionCountries;
+    }
+
+    public long getRevenue() {
+        return revenue;
+    }
+
+    public List<SpokenLanguages> getSpokenLanguages() {
+        return spokenLanguages;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public boolean isVideo() {
+        return video;
+    }
+
+    public double getVoteAverage() {
+        return voteAverage;
+    }
+
+    public int getVoteCount() {
+        return voteCount;
+    }
+
+    public Credits getCredits() {
+        return credits;
+    }
+
     @Override
     public String toString() {
         return "Movie{" +
