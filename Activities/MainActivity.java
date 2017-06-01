@@ -1,5 +1,5 @@
 package jfkdevelopers.navdrawertestapp.Activities;
-
+//TODO: replace all database handlers with reference to the firebase database
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -33,11 +33,13 @@ import android.widget.Toast;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import jfkdevelopers.navdrawertestapp.Adapters.MovieAdapter;
 import jfkdevelopers.navdrawertestapp.Database.DatabaseHandler;
@@ -45,6 +47,7 @@ import jfkdevelopers.navdrawertestapp.Fragments.MovieFragment;
 import jfkdevelopers.navdrawertestapp.Fragments.NowPlayingFragment;
 import jfkdevelopers.navdrawertestapp.Fragments.PopularFragment;
 import jfkdevelopers.navdrawertestapp.Objects.BasicMovie;
+import jfkdevelopers.navdrawertestapp.Objects.Movie;
 import jfkdevelopers.navdrawertestapp.Objects.User;
 import jfkdevelopers.navdrawertestapp.R;
 import jfkdevelopers.navdrawertestapp.SignInActivities.EmailPasswordActivity;
@@ -61,13 +64,14 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     private int navItemIndex=0;
     private final Context context = this;
     private DatabaseHandler db;
-    private ArrayList<BasicMovie> movies;
+    private ArrayList<Movie> movies;
     private final ArrayList<Integer> backStackIndex = new ArrayList<>();
     private boolean doubleBackToExitPressedOnce = false;
     private DatabaseReference mDatabase;
     private FirebaseAuth mFirebaseAuth;
     private FirebaseUser mFirebaseUser;
-    // ...
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -80,7 +84,9 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         mFirebaseUser = mFirebaseAuth.getCurrentUser();
 
         db = new DatabaseHandler(this);
-        getData();
+        movies = new ArrayList<>();
+        //movieIds = new ArrayList<>();
+
         fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -137,14 +143,14 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 inputMethodManager.hideSoftInputFromWindow(drawerView.getWindowToken(), 0);
             }
         };
+
         drawer.addDrawerListener(toggle);
         toggle.syncState();
+
         NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
 
-        //on initiate we want to load movie fragment
-        if(savedInstanceState==null) {
-            loadFragment(false);
+        if (savedInstanceState==null){
             navigationView.getMenu().getItem(0).setChecked(true);
         }
     }
@@ -189,18 +195,16 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         if(requestCode == 1){
             if(resultCode == RESULT_OK){
                 @SuppressWarnings("unchecked")
-                ArrayList<BasicMovie> moviesToAdd = (ArrayList<BasicMovie>) data.getSerializableExtra(MovieAdapter.SER_KEY);
-                for(BasicMovie m: moviesToAdd){
+                ArrayList<Movie> moviesToAdd = (ArrayList<Movie>) data.getSerializableExtra(MovieAdapter.SER_KEY);
+                for(Movie m: moviesToAdd){
                     if(!db.movieInTable(m.getId())) {
                         movies.add(m);
-                        db.addMovie(m.getId(), m.toJsonString());
+                        //db.addMovie(m.getId(), m.toJsonString());
                         count++;
                     }
                 }
-                //snackbar
                 Snackbar.make(findViewById(android.R.id.content),count+" movies added",Snackbar.LENGTH_LONG)
                         .show();
-                        //.setAction("Undo",)
                 loadFragment(false);
             }
         }
@@ -233,7 +237,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
               if(navItemIndex==0){
                   bundle.putParcelableArrayList("movies",movies);
                   fragment.setArguments(bundle);
-                  String title = (String)getResources().getText(R.string.title_main) + " (" + movies.size()+")";
+                  String title = (String) getResources().getText(R.string.title_main); //+ " (" + movies.size() + ")";
                   toolbar.setTitle(title);
               }
               else if(navItemIndex==1){
@@ -249,7 +253,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
               fragmentTransaction.commit();
           }
         };
-        /*if(mPendingRunnable!=null) */mHandler.post(mPendingRunnable);
+
+        mHandler.post(mPendingRunnable);
     }
 
     private Fragment getFragment() {
@@ -268,7 +273,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     private void openFrag(int id){
         if (id == R.id.nav_movies || id == 0){
             if(navItemIndex!=0) {
-                getData();
                 navItemIndex = 0;
                 CURRENT_TAG = MovieFragment.getFragTag();
                 loadFragment(false);
@@ -318,18 +322,15 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         return CURRENT_TAG;
     }
 
-    private void getData(){
-        movies = db.getAllMovies();
-        for(BasicMovie bm:movies){
-            bm.setUserRating(db.getRating(bm.getId()));
-        }
-    }
-
     @Override
     public void onResume(){
+        if(navItemIndex==0) {
+            loadFragment(false);
+        }
+        else {
+            loadFragment(true);
+        }
         super.onResume();
-        getData();
-        loadFragment(true);
     }
 
 }
