@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/activity_search"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingLeft="@dimen/activity_horizontal_margin"
+    android:paddingStart="@dimen/activity_horizontal_margin"
+    android:paddingRight="@dimen/activity_horizontal_margin"
+    android:paddingEnd="@dimen/activity_horizontal_margin"
+    tools:context="jfkdevelopers.navdrawertestapp.Activities.SearchActivity">
+<!--    <TextView
+        android:id="@+id/noMoviesFound"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:text="@string/no_results_found"
+        android:visibility="@{dataset.size() > 0 ? View.GONE : View.VISIBLE"/>-->
+    <android.support.v7.widget.RecyclerView
+        android:id="@+id/searchRecyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scrollbars="none"/>
+</RelativeLayout>
+<!--
+<data>
+<import type="android.view.View"/>
+<variable
+	name="dataset"
+	type="java.util.List&lt;java.lang.String&gt;"
+	/>
+</data>-->
