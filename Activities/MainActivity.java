@@ -1,5 +1,5 @@
 package jfkdevelopers.navdrawertestapp.Activities;
-//TODO: replace all database handlers with reference to the firebase database
+
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -8,7 +8,6 @@ import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
-import android.provider.ContactsContract;
 import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.NavigationView;
@@ -22,36 +21,22 @@ import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
-import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.Toast;
 
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
-
+import java.io.File;
 import java.util.ArrayList;
-import java.util.List;
 
 import jfkdevelopers.navdrawertestapp.Adapters.MovieAdapter;
 import jfkdevelopers.navdrawertestapp.Database.DatabaseHandler;
 import jfkdevelopers.navdrawertestapp.Fragments.MovieFragment;
 import jfkdevelopers.navdrawertestapp.Fragments.NowPlayingFragment;
 import jfkdevelopers.navdrawertestapp.Fragments.PopularFragment;
-import jfkdevelopers.navdrawertestapp.Objects.BasicMovie;
-import jfkdevelopers.navdrawertestapp.Objects.Movie;
-import jfkdevelopers.navdrawertestapp.Objects.User;
+import jfkdevelopers.navdrawertestapp.Objects.DBMovie;
 import jfkdevelopers.navdrawertestapp.R;
-import jfkdevelopers.navdrawertestapp.SignInActivities.EmailPasswordActivity;
-import jfkdevelopers.navdrawertestapp.SignInActivities.GoogleSignInActivity;
 
 public class MainActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener,
         MovieFragment.OnListFragmentInteractionListener, PopularFragment.OnListFragmentInteractionListener,
@@ -64,30 +49,21 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     private int navItemIndex=0;
     private final Context context = this;
     private DatabaseHandler db;
-    private ArrayList<Movie> movies;
+    private ArrayList<DBMovie> movies;
     private final ArrayList<Integer> backStackIndex = new ArrayList<>();
     private boolean doubleBackToExitPressedOnce = false;
-    private DatabaseReference mDatabase;
-    private FirebaseAuth mFirebaseAuth;
-    private FirebaseUser mFirebaseUser;
-
-
+	private Bundle instanceState;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-
-        mDatabase = FirebaseDatabase.getInstance().getReference();
-        mFirebaseAuth = FirebaseAuth.getInstance();
-        mFirebaseUser = mFirebaseAuth.getCurrentUser();
-
+		instanceState = savedInstanceState;
+		
         db = new DatabaseHandler(this);
-        movies = new ArrayList<>();
-        //movieIds = new ArrayList<>();
-
         fab = (FloatingActionButton) findViewById(R.id.fab);
+
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -150,16 +126,119 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
 
-        if (savedInstanceState==null){
+        if (instanceState==null)
             navigationView.getMenu().getItem(0).setChecked(true);
+    }
+
+    @Override
+    public void onStart(){
+        super.onStart();
+    }
+
+    @Override
+    public void onResume(){
+        super.onResume(); // Always call the superclass method first
+        if(instanceState==null){
+			if(navItemIndex==0) {
+				//Open the movie fragment
+				openFrag(0);
+			}
+			else {
+				loadFragment(true);
+			}
+		}
+    }
+
+    private void openFrag(int id){
+        if (id == R.id.nav_movies || id == 0){
+            navItemIndex = 0;
+            if(movies==null || movies.size()!=db.getDBSize()) {
+                getData();
+            }
+            CURRENT_TAG = MovieFragment.getFragTag();
+            loadFragment(false);
+        } else if (id == R.id.nav_popular || id == 1) {
+            if(navItemIndex!=1) {
+                navItemIndex = 1;
+                CURRENT_TAG = PopularFragment.getFragTag();
+                loadFragment(false);
+            }
+        } else if (id == R.id.nav_nowplaying || id == 2) {
+            if(navItemIndex!=2) {
+                navItemIndex = 2;
+                CURRENT_TAG = NowPlayingFragment.getFragTag();
+                loadFragment(false);
+            }
         }
+    }
+
+    private void loadFragment(final boolean onResume){
+        if(navItemIndex==0){
+            fab.show();
+        }
+        else{
+            fab.hide();
+        }
+        Handler mHandler = new Handler();
+        Runnable mPendingRunnable = new Runnable(){
+            @Override
+            public void run(){
+                Fragment fragment = getFragment();
+                Bundle bundle = new Bundle();
+                if(navItemIndex==0){
+                    bundle.putParcelableArrayList("movies",movies);
+                    fragment.setArguments(bundle);
+                    String title = (String) getResources().getText(R.string.title_main);
+                    title+=movies!=null? " (" + movies.size() + ")" : "";
+                    toolbar.setTitle(title);
+                }
+                else if(navItemIndex==1){
+                    toolbar.setTitle(R.string.popular);
+                }
+                else if(navItemIndex==2){
+                    toolbar.setTitle(R.string.now_playing);
+                }
+                if (!onResume) backStackIndex.add(navItemIndex);
+                if(navItemIndex>=0) {
+                    FragmentTransaction fragmentTransaction = getSupportFragmentManager().beginTransaction();
+                    fragmentTransaction.setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out);
+                    fragmentTransaction.replace(R.id.frame, fragment, CURRENT_TAG);
+                    //fragmentTransaction.addToBackStack(null);
+                    fragmentTransaction.commit();
+                }
+            }
+        };
+
+        mHandler.post(mPendingRunnable);
     }
 
     @Override
     public void onBackPressed() {
+        super.onBackPressed();
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         if (drawer.isDrawerOpen(GravityCompat.START)) {
             drawer.closeDrawer(GravityCompat.START);
+        }
+        else if(navItemIndex==0) {
+            fab.hide();
+            if (doubleBackToExitPressedOnce) {
+                finish();
+                return;
+            }
+
+            this.doubleBackToExitPressedOnce = true;
+            View view = findViewById(android.R.id.content);
+            Snackbar snackbar = Snackbar.make(view, "Click back again to exit", 2000);
+            View sbView = snackbar.getView();
+            sbView.setBackgroundColor(ContextCompat.getColor(context, R.color.colorAccent));
+            snackbar.show();
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    doubleBackToExitPressedOnce = false;
+                    fab.show();
+                }
+            }, 2000);
         }
         else if(backStackIndex.size()>1) {
             backStackIndex.remove(backStackIndex.size()-1);
@@ -195,11 +274,11 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         if(requestCode == 1){
             if(resultCode == RESULT_OK){
                 @SuppressWarnings("unchecked")
-                ArrayList<Movie> moviesToAdd = (ArrayList<Movie>) data.getSerializableExtra(MovieAdapter.SER_KEY);
-                for(Movie m: moviesToAdd){
+                ArrayList<DBMovie> moviesToAdd = (ArrayList<DBMovie>) data.getSerializableExtra(MovieAdapter.SER_KEY);
+                for(DBMovie m: moviesToAdd){
                     if(!db.movieInTable(m.getId())) {
                         movies.add(m);
-                        //db.addMovie(m.getId(), m.toJsonString());
+                        db.addMovie(m.getId(), 0);
                         count++;
                     }
                 }
@@ -221,42 +300,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         return true;
     }
 
-    private void loadFragment(final boolean onResume){
-        if(navItemIndex==0){
-            fab.show();
-        }
-        else{
-            fab.hide();
-        }
-        Handler mHandler = new Handler();
-        Runnable mPendingRunnable = new Runnable(){
-          @Override
-            public void run(){
-              Fragment fragment = getFragment();
-              Bundle bundle = new Bundle();
-              if(navItemIndex==0){
-                  bundle.putParcelableArrayList("movies",movies);
-                  fragment.setArguments(bundle);
-                  String title = (String) getResources().getText(R.string.title_main); //+ " (" + movies.size() + ")";
-                  toolbar.setTitle(title);
-              }
-              else if(navItemIndex==1){
-                  toolbar.setTitle(R.string.popular);
-              }
-              else if(navItemIndex==2){
-                  toolbar.setTitle(R.string.now_playing);
-              }
-              if (!onResume) backStackIndex.add(navItemIndex);
-              FragmentTransaction fragmentTransaction = getSupportFragmentManager().beginTransaction();
-              fragmentTransaction.setCustomAnimations(android.R.anim.fade_in,android.R.anim.fade_out);
-              fragmentTransaction.replace(R.id.frame,fragment,CURRENT_TAG);
-              fragmentTransaction.commit();
-          }
-        };
-
-        mHandler.post(mPendingRunnable);
-    }
-
     private Fragment getFragment() {
         switch (navItemIndex) {
             case 0:
@@ -270,36 +313,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         }
     }
 
-    private void openFrag(int id){
-        if (id == R.id.nav_movies || id == 0){
-            if(navItemIndex!=0) {
-                navItemIndex = 0;
-                CURRENT_TAG = MovieFragment.getFragTag();
-                loadFragment(false);
-            }
-        } else if (id == R.id.nav_popular || id == 1) {
-            if(navItemIndex!=1) {
-                navItemIndex = 1;
-                CURRENT_TAG = PopularFragment.getFragTag();
-                loadFragment(false);
-            }
-        } else if (id == R.id.nav_nowplaying || id == 2) {
-            if(navItemIndex!=2) {
-                navItemIndex = 2;
-                CURRENT_TAG = NowPlayingFragment.getFragTag();
-                loadFragment(false);
-            }
-        }
-        else if (id == R.id.nav_googlesignin){
-            startActivity(new Intent(context,GoogleSignInActivity.class));
-        }
-        else if (id == R.id.nav_emailsignin){
-            startActivity(new Intent(context, EmailPasswordActivity.class));
-        }
-        else{
-            Log.e("Nav Drawer","Error no code for selected item");
-        }
-    }
+
 
     @Override
     public void onListFragmentInteraction(Uri uri) {
@@ -322,15 +336,42 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         return CURRENT_TAG;
     }
 
-    @Override
-    public void onResume(){
-        if(navItemIndex==0) {
-            loadFragment(false);
-        }
-        else {
-            loadFragment(true);
-        }
-        super.onResume();
+    private void getData(){
+        movies = db.getAllMovies();
     }
 
+    public static void deleteCache(Context context) {
+        try {
+            File dir = context.getCacheDir();
+            deleteDir(dir);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static boolean deleteDir(File dir) {
+        if (dir != null && dir.isDirectory()) {
+            String[] children = dir.list();
+            for (String str: children) {
+                boolean success = deleteDir(new File(dir, str));
+                if (!success) {
+                    return false;
+                }
+            }
+            return dir.delete();
+        }else {
+            return dir != null && dir.isFile() && dir.delete();
+        }
+    }
+
+    @Override
+    public void onDestroy(){
+        deleteCache(this);
+        super.onDestroy();
+    }
+
+    @Override
+    public void onPause(){
+        super.onPause();
+    }
 }

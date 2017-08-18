@@ -19,26 +19,16 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
 
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
 import jfkdevelopers.navdrawertestapp.Adapters.BasicMovieAdapter;
-import jfkdevelopers.navdrawertestapp.Adapters.MovieAdapter;
 import jfkdevelopers.navdrawertestapp.Database.DatabaseHandler;
 import jfkdevelopers.navdrawertestapp.Interfaces.EndlessRecyclerViewScrollListener;
 import jfkdevelopers.navdrawertestapp.Interfaces.RestApi;
 import jfkdevelopers.navdrawertestapp.Objects.BasicMovie;
-import jfkdevelopers.navdrawertestapp.Objects.Movie;
 import jfkdevelopers.navdrawertestapp.Objects.MovieResponse;
 import jfkdevelopers.navdrawertestapp.R;
 import retrofit2.Call;
@@ -48,7 +38,6 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class NowPlayingFragment extends Fragment {
 
-    // TODO: Customize parameters
     private OnListFragmentInteractionListener mListener;
 
     private static final String TAG = "NowPlayingFragment";
@@ -58,9 +47,7 @@ public class NowPlayingFragment extends Fragment {
     private int totalPages;
     private int currPage;
     private RecyclerView rv;
-    private DatabaseReference mDatabase;
-    private FirebaseAuth mFirebaseAuth;
-    private FirebaseUser mFirebaseUser;
+
     private List<Integer> movieIds;
 
     public NowPlayingFragment() {
@@ -70,16 +57,8 @@ public class NowPlayingFragment extends Fragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         nowPlayingMovies = new ArrayList<>();
-        currPage=1;
-        if(connectedToNetwork()) getMovies();
-        else Toast.makeText(getActivity(),"No Internet Connection",Toast.LENGTH_LONG).show();
         db = new DatabaseHandler(getActivity());
         mAdapter = new BasicMovieAdapter(getActivity(),nowPlayingMovies, this);
-
-        mDatabase = FirebaseDatabase.getInstance().getReference();
-        mFirebaseAuth = FirebaseAuth.getInstance();
-        mFirebaseUser = mFirebaseAuth.getCurrentUser();
-
         setHasOptionsMenu(true);
     }
 
@@ -89,7 +68,10 @@ public class NowPlayingFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_nowplaying, container, false);
         view.setTag(TAG);
         Context context = view.getContext();
+
         rv = (RecyclerView) view.findViewById(R.id.nowPlayingRecyclerView);
+        rv.setHasFixedSize(true);
+        rv.setSaveEnabled(true);
         //int mColumnCount = 1;
         //if (mColumnCount <= 1) {
             LinearLayoutManager layoutManager = new LinearLayoutManager(context);
@@ -158,44 +140,49 @@ public class NowPlayingFragment extends Fragment {
     }
 
     public void addMovie(final BasicMovie m){
-        if(mDatabase!=null) {
-            //check if movie exists in database, if not then add it
-            mDatabase.child("movies").addListenerForSingleValueEvent(new ValueEventListener() {
-                @Override
-                public void onDataChange(DataSnapshot snapshot) {
-                    if (!snapshot.hasChild(Integer.toString(m.getId()))) {
-                        getMovieDetails(m.getId());
-                    }
-                }
-
-                @Override
-                public void onCancelled(DatabaseError databaseError) {
-                    Log.e("error adding to db", databaseError.toString());
-                }
-            });
-
-            //check if user already has this movie, if not then add it
-            mDatabase.child("users").child(mFirebaseUser.getUid()).child("movieIDs").addListenerForSingleValueEvent(new ValueEventListener() {
-                @Override
-                public void onDataChange(DataSnapshot snapshot) {
-                    if (!snapshot.hasChild(Integer.toString(m.getId()))) {
-                        mDatabase.child("users").child(mFirebaseUser.getUid()).child("movieIDs").child(Integer.toString(m.getId())).setValue(0);
-                        Snackbar.make(rv,m.getTitle() + " added",Snackbar.LENGTH_LONG).show();
-                    }
-                    else{
-                        Snackbar.make(rv,m.getTitle()+" is already in your library",Snackbar.LENGTH_LONG).show();
-                    }
-                }
-
-                @Override
-                public void onCancelled(DatabaseError databaseError) {
-                    Log.e("error adding to user", databaseError.toString());
-                }
-            });
-        }
+//        //For later use with FireBase
+//        if(mDatabase!=null) {
+//            //check if movie exists in database, if not then add it
+//            mDatabase.child("movies").addListenerForSingleValueEvent(new ValueEventListener() {
+//                @Override
+//                public void onDataChange(DataSnapshot snapshot) {
+//                    if (!snapshot.hasChild(Integer.toString(m.getId()))) {
+//                        getMovieDetails(m.getId());
+//                    }
+//                }
+//
+//                @Override
+//                public void onCancelled(DatabaseError databaseError) {
+//                    Log.e("error adding to db", databaseError.toString());
+//                }
+//            });
+//
+//            //check if user already has this movie, if not then add it
+//            mDatabase.child("users").child(mFirebaseUser.getUid()).child("movieIDs").addListenerForSingleValueEvent(new ValueEventListener() {
+//                @Override
+//                public void onDataChange(DataSnapshot snapshot) {
+//                    if (!snapshot.hasChild(Integer.toString(m.getId()))) {
+//                        mDatabase.child("users").child(mFirebaseUser.getUid()).child("movieIDs").child(Integer.toString(m.getId())).setValue(0);
+//                        Snackbar.make(rv,m.getTitle() + " added",Snackbar.LENGTH_LONG).show();
+//                    }
+//                    else{
+//                        Snackbar.make(rv,m.getTitle()+" is already in your library",Snackbar.LENGTH_LONG).show();
+//                    }
+//                }
+//
+//                @Override
+//                public void onCancelled(DatabaseError databaseError) {
+//                    Log.e("error adding to user", databaseError.toString());
+//                }
+//            });
+//        }
 
         if(!db.movieInTable(m.getId())) {
-            db.addMovie(m.getId(), m.toJsonString());
+            db.addMovie(m.getId(), 0);
+            Snackbar.make(rv,m.getTitle() + " added",Snackbar.LENGTH_LONG).show();
+        }
+        else{
+            Snackbar.make(rv,m.getTitle()+" is already in your library",Snackbar.LENGTH_LONG).show();
         }
     }
 
@@ -250,26 +237,21 @@ public class NowPlayingFragment extends Fragment {
         return connected;
     }
 
-    private void getMovieDetails(final int id){
-        String BASE_URL = "http://api.themoviedb.org/3/";
-        Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl(BASE_URL)
-                .addConverterFactory(GsonConverterFactory.create())
-                .build();
+    @Override
+    public void onResume(){
+        super.onResume();
+        Boolean connected = connectedToNetwork();
+        if(connected && nowPlayingMovies.size()<=0){
+            Log.e(TAG,"init getMovie called");
+            currPage=1;
+            getMovies();
+        }
+        else if(!connected) Toast.makeText(getActivity(),"No Internet Connection",Toast.LENGTH_LONG).show();
+    }
 
-        final RestApi service = retrofit.create(RestApi.class);
-        Call<Movie> movieCall = service.getMovie(id);
-        movieCall.enqueue(new Callback<Movie>() {
-            @Override
-            public void onResponse(Call<Movie> call, retrofit2.Response<Movie> response) {
-                Movie movie = response.body();
-                mDatabase.child("movies").child(Integer.toString(id)).setValue(movie);
-            }
-
-            @Override
-            public void onFailure(Call<Movie> call, Throwable t) {
-                Toast.makeText(getActivity(),"Error getting movie details. Please try again.",Toast.LENGTH_LONG).show();
-            }
-        });
+    @Override
+    public void onDestroy(){
+        Log.e(TAG,"onDestroy called");
+        super.onDestroy();
     }
 }

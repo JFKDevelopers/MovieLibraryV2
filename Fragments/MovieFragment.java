@@ -18,6 +18,7 @@ import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.view.MenuItemCompat;
 import android.support.v7.app.AlertDialog;
+import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.SearchView;
@@ -30,134 +31,56 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageButton;
-import android.widget.ImageView;
-import android.widget.TextView;
-import android.widget.Toast;
-
-import com.bumptech.glide.Glide;
-import com.firebase.ui.database.FirebaseRecyclerAdapter;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 
-import jfkdevelopers.navdrawertestapp.Activities.DetailActivity;
 import jfkdevelopers.navdrawertestapp.Adapters.MovieAdapter;
 import jfkdevelopers.navdrawertestapp.Database.DatabaseHandler;
-import jfkdevelopers.navdrawertestapp.Objects.Movie;
+import jfkdevelopers.navdrawertestapp.Objects.DBMovie;
 import jfkdevelopers.navdrawertestapp.R;
+import jfkdevelopers.navdrawertestapp.SignInActivities.GoogleSignInActivity;
 
 public class MovieFragment extends Fragment implements SearchView.OnQueryTextListener{
-    private static Context mContext;
-    private static class MovieViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener{
-        final ImageView movieImage;
-        final TextView movieTitle;
-        final TextView movieYear;
-        final TextView movieRating;
-        final TextView movieGenre;
-        final TextView movieUserRating;
-        final ImageView star;
-        final ImageButton addBtn;
-        public int id = -1;
-        public MovieViewHolder(View v){
-            super(v);
-            movieImage = (ImageView) v.findViewById(R.id.cover);
-            movieImage.setOnClickListener(this);
-            movieTitle = (TextView) v.findViewById(R.id.title);
-            movieTitle.setOnClickListener(this);
-            movieYear = (TextView) v.findViewById(R.id.year);
-            movieYear.setOnClickListener(this);
-            movieRating = (TextView) v.findViewById(R.id.rating);
-            movieRating.setOnClickListener(this);
-            movieGenre = (TextView) v.findViewById(R.id.genre);
-            movieGenre.setOnClickListener(this);
-            movieUserRating = (TextView) v.findViewById(R.id.userStarRating);
-            movieUserRating.setOnClickListener(this);
-            star = (ImageView) v.findViewById(R.id.starImg);
-            star.setOnClickListener(this);
-            addBtn = (ImageButton) v.findViewById(R.id.addButton);
-            addBtn.setVisibility(View.INVISIBLE);
-            //addBtn.setOnClickListener(this);
-        }
-        @Override
-        public void onClick(View view){
-            //Integer position = (Integer) view.getTag();
-            switch(view.getId()) {
-                case R.id.addButton:
-                    break;
-                default:
-                    Intent intent = new Intent(mContext,DetailActivity.class);
-                    intent.putExtra("id",id);
-                    intent.putExtra("src",1);
-                    mContext.startActivity(intent);
-                    break;
-            }
-        }
-    }
-
-    private SharedPreferences sharedPreferences;
     private static final String MyPREFERENCES = "MyPrefs";
     private final CharSequence[] sortOptions = {"Title (A-Z)","Title (Z-A)","Year (1900-2017)","Year (2017-1900)","Rating (5-0)","Rating (0-5)"};
+    private static final String TAG = "MovieFragment";
+
+    private SharedPreferences sharedPreferences;
     private int sortPref;
+    private DatabaseHandler db;
+    private ArrayList<DBMovie> movies;
+    private RecyclerView mMovieRecyclerView;
+    private LinearLayoutManager mLinearLayoutManager;
+    private OnListFragmentInteractionListener mListener;
+    private MovieAdapter mAdapter;
+    private int topView;
+
+    private int positionIndex = -1;
     private final SparseArray<String> genreMap = new SparseArray<>();
 
-    // TODO: Customize parameters
-    //int mColumnCount = 1;
-    private OnListFragmentInteractionListener mListener;
+    //FireBase Objects
+//    private DatabaseReference mFirebaseDatabaseReference;
+//    private FirebaseAuth mFirebaseAuth;
+//    private FirebaseUser mFirebaseUser;
+//    private ArrayList<String> movieIds;
 
-    private static final String TAG = "MovieFragment";
-    private ArrayList<Movie> movies;
-    private RecyclerView mMovieRecyclerView;
-    private DatabaseHandler db;
-    private LinearLayoutManager mLinearLayoutManager;
-    private DatabaseReference mFirebaseDatabaseReference;
-    private FirebaseAuth mFirebaseAuth;
-    private FirebaseUser mFirebaseUser;
-    private ArrayList<String> movieIds;
-    private FirebaseRecyclerAdapter<Movie,MovieViewHolder> mFirebaseAdapter;
-    private String sortBy;
     public MovieFragment() {}
-    /*Context mContext;*/
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
-        mContext = getActivity();
+        db = new DatabaseHandler(getActivity());
         sharedPreferences = getActivity().getSharedPreferences(MyPREFERENCES,Context.MODE_PRIVATE);
         sortPref = sharedPreferences.getInt("sortPref",0);
-
-        switch(sortPref){
-            case 0:
-            case 1:
-                sortBy = "title";
-                break;
-            case 2:
-            case 3:
-                sortBy = "releaseDate";
-                break;
-            case 4:
-            case 5:
-                sortBy = "userRating";
-                break;
-            default:
-                break;
-        }
-
-        mFirebaseDatabaseReference = FirebaseDatabase.getInstance().getReference();
-        mFirebaseAuth = FirebaseAuth.getInstance();
-        mFirebaseUser = mFirebaseAuth.getCurrentUser();
-        db = new DatabaseHandler(getActivity());
-        //getData();
         movies = new ArrayList<>();
-        movieIds = new ArrayList<>();
+        //For later use with FireBase
+        //mFirebaseDatabaseReference = FirebaseDatabase.getInstance().getReference();
+        //mFirebaseAuth = FirebaseAuth.getInstance();
+        //mFirebaseUser = mFirebaseAuth.getCurrentUser();
+        //movieIds = getMovieIdsFromFireBase();
     }
 
     @Override
@@ -165,89 +88,25 @@ public class MovieFragment extends Fragment implements SearchView.OnQueryTextLis
                              final Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_movie, container, false);
         view.setTag(TAG);
-        Context context = view.getContext();
-        mMovieRecyclerView = (RecyclerView) view.findViewById(R.id.movieRecyclerView);
-        mLinearLayoutManager = new LinearLayoutManager(context);
-        if(sortPref%2!=0) {
-            mLinearLayoutManager.setReverseLayout(true);
-            mLinearLayoutManager.setStackFromEnd(true);
-        }
-        /*
-        * GET MOVIES
-        */
-        mFirebaseAdapter = new FirebaseRecyclerAdapter<Movie, MovieViewHolder>(
-                Movie.class,
-                R.layout.list_item,
-                MovieViewHolder.class,
-                mFirebaseDatabaseReference.child("movies").orderByChild(sortBy)
-        ) {
-            @Override
-            protected Movie parseSnapshot(DataSnapshot snapshot){
-                Movie movie = super.parseSnapshot(snapshot);
-                if(movie !=null){
-                    movie.setId(Integer.parseInt(snapshot.getKey()));
-                }
-                return movie;
-            }
-            @Override
-            protected void populateViewHolder(MovieViewHolder viewHolder, Movie movie, int position) {
-                if(movie.getTitle()!=null){
-                    try {
-                        Glide.with(getActivity())
-                                .load("https://image.tmdb.org/t/p/w500" + movie.getPosterPath())
-                                .placeholder(R.drawable.filmstrip)
-                                .error(R.drawable.filmstrip)
-                                .into(viewHolder.movieImage);
-                        viewHolder.movieTitle.setText(movie.getTitle());
-                        viewHolder.movieRating.setText("");
-                        if(movie.getReleaseDate().length()>=4) viewHolder.movieYear.setText(movie.getReleaseDate().substring(0,4));
-                        else viewHolder.movieYear.setText("n/a");
-                        setGenres();
-                        String genres = "<need to import generes>";
-                        /*for(Integer i:movie.getGenreIds()){
-                            genres = genres + genreMap.get(i) + ", ";
-                        }*/
-                        if(genres.length()>2) genres = genres.substring(0,genres.length()-2);
-                        viewHolder.movieGenre.setText(genres);
-                        viewHolder.id = movie.getId();
-                        final String userRatingStr = Float.toString(db.getRating(movie.getId()));
-                        viewHolder.movieUserRating.setText(userRatingStr);
-                        viewHolder.movieUserRating.setVisibility(View.VISIBLE);
-                        viewHolder.star.setVisibility(View.VISIBLE);
-                        viewHolder.addBtn.setVisibility(View.INVISIBLE);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-        };
+        movies = getArguments().getParcelableArrayList("movies");
+        int size = 0;
+        if(movies!=null) size = movies.size();
+        mAdapter = new MovieAdapter(view.getContext(),movies, this);
 
-                    mFirebaseAdapter.registerAdapterDataObserver(new RecyclerView.AdapterDataObserver(){
-            @Override
-            public void onItemRangeInserted(int positionStart, int itemCount){
-                    super.onItemRangeInserted(positionStart,itemCount);
-                    //this codes causes adapter to scroll to last position in the list
-                    /*
-                    int movieCount = mFirebaseAdapter.getItemCount();
-                    int lastVisiblePosition = mLinearLayoutManager.findFirstVisibleItemPosition();
-                    if (lastVisiblePosition == -1 ||
-                            (positionStart >= (movieCount - 1) && lastVisiblePosition == (positionStart - 1))) {
-                        mMovieRecyclerView.scrollToPosition(positionStart);
-                    }*/
-        }
-        });
-        /*
-        * END GETTING MOVIES
-        * */
+        mMovieRecyclerView = (RecyclerView) view.findViewById(R.id.movieRecyclerView);
+        mLinearLayoutManager = new LinearLayoutManager(view.getContext());
 
         mMovieRecyclerView.setLayoutManager(mLinearLayoutManager);
-        //DividerItemDecoration dividerItemDecoration = new DividerItemDecoration(mMovieRecyclerView.getContext(),mLinearLayoutManager.getOrientation());
-        //mMovieRecyclerView.addItemDecoration(dividerItemDecoration);
-        mMovieRecyclerView.setAdapter(mFirebaseAdapter);
+        DividerItemDecoration dividerItemDecoration = new DividerItemDecoration(mMovieRecyclerView.getContext(),
+                                                                        mLinearLayoutManager.getOrientation());
+        mMovieRecyclerView.addItemDecoration(dividerItemDecoration);
+
+        mMovieRecyclerView.setAdapter(mAdapter);
+
         setUpItemTouchHelper();
         setUpAnimationDecoratorHelper();
         setHasOptionsMenu(true);
-        //mAdapter = new MovieAdapter(getActivity(),movies, this);
+
         return view;
     }
 
@@ -294,8 +153,8 @@ public class MovieFragment extends Fragment implements SearchView.OnQueryTextLis
 
     @Override
     public boolean onQueryTextChange(String filterTxt){
-        final ArrayList<Movie> filteredList = filter(filterTxt);
-        //mAdapter.updateList(filteredList);
+        final ArrayList<DBMovie> filteredList = filter(filterTxt);
+        mAdapter.updateList(filteredList);
         return true;
     }
     @Override
@@ -330,7 +189,8 @@ public class MovieFragment extends Fragment implements SearchView.OnQueryTextLis
     }
 
     private void setUpItemTouchHelper() {
-        ItemTouchHelper.SimpleCallback simpleItemTouchCallback = new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT) {
+        ItemTouchHelper.SimpleCallback simpleItemTouchCallback = new ItemTouchHelper.SimpleCallback(0,
+                                                                        ItemTouchHelper.LEFT) {
             Drawable background;
             Drawable xMark;
             int xMarkMargin;
@@ -351,8 +211,8 @@ public class MovieFragment extends Fragment implements SearchView.OnQueryTextLis
 
             @Override
             public int getSwipeDirs(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder) {
-                //int position = viewHolder.getAdapterPosition();
-                //MovieAdapter movieAdapter = (MovieAdapter) rv.getAdapter();
+                int position = viewHolder.getAdapterPosition();
+                MovieAdapter movieAdapter = (MovieAdapter) mMovieRecyclerView.getAdapter();
                 /*if (movieAdapter.isUndoOn() && movieAdapter.isPendingRemoval(position)) {
                     return 0;
                 }*/
@@ -362,9 +222,8 @@ public class MovieFragment extends Fragment implements SearchView.OnQueryTextLis
             @Override
             public void onSwiped(RecyclerView.ViewHolder viewHolder, int swipeDir) {
                 int swipedPosition = viewHolder.getAdapterPosition();
-                mFirebaseDatabaseReference.child("users").child(mFirebaseUser.getUid()).child("movieIDs").child(Integer.toString(movies.get(swipedPosition).getId())).removeValue();
                 //MovieAdapter adapter = (MovieAdapter) mMovieRecyclerView.getAdapter();
-                //adapter.remove(swipedPosition, mFirebaseDatabaseReference, mMovieRecyclerView);
+                mAdapter.remove(swipedPosition, db, mMovieRecyclerView);
             }
 
             @Override
@@ -463,10 +322,11 @@ public class MovieFragment extends Fragment implements SearchView.OnQueryTextLis
             }
         });
     }
-    private ArrayList<Movie> filter(String filter){
-        ArrayList<Movie> temp = new ArrayList<>();
+
+    private ArrayList<DBMovie> filter(String filter){
+        ArrayList<DBMovie> temp = new ArrayList<>();
         filter = filter.toUpperCase();
-        for(Movie m:movies){
+        for(DBMovie m:movies){
             if(m.getTitle().toUpperCase().contains(filter)||m.getReleaseDate().toUpperCase().substring(0,4).contains(filter))
                 temp.add(m);
         }
@@ -493,8 +353,8 @@ public class MovieFragment extends Fragment implements SearchView.OnQueryTextLis
                     editor.putInt("sortPref",item);
                     editor.apply();
                     dialog.dismiss();
-                    //mAdapter.updateList(movies);
-                    //mAdapter.notifyDataSetChanged();
+                    mAdapter.updateList(movies);
+                    mAdapter.notifyDataSetChanged();
                 }
             });
             sortDialog = dialog.create();
@@ -508,9 +368,11 @@ public class MovieFragment extends Fragment implements SearchView.OnQueryTextLis
                     new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
-                            mFirebaseDatabaseReference.child("users").child(mFirebaseUser.getUid()).child("movieIDs").removeValue();
+                            //For later use with FireBase
+                            //mFirebaseDatabaseReference.child("users").child(mFirebaseUser.getUid()).child("movieIDs").removeValue();
                             movies.clear();
-                            //mAdapter.updateList(movies);
+                            db.deleteAllMovies();
+                            mAdapter.updateList(movies);
                         }
                     });
             builder.setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
@@ -520,75 +382,81 @@ public class MovieFragment extends Fragment implements SearchView.OnQueryTextLis
             });
             AlertDialog dialog = builder.create();
             dialog.show();
-            //mAdapter.updateList(movies);
+            mAdapter.updateList(movies);
+        }
+        else if(id==R.id.action_syncGoogle){
+            Intent intent = new Intent(getActivity(),GoogleSignInActivity.class);
+            intent.putParcelableArrayListExtra("movies",movies);
+            getActivity().startActivity(intent);
         }
         return super.onOptionsItemSelected(item);
     }
 
     public void sortMovies(int item){
+        //TODO: fix user rating sort
         switch(item){
             case 0: //Sort A-Z
-                Collections.sort(movies,new Comparator<Movie>(){
+                Collections.sort(movies,new Comparator<DBMovie>(){
                     @Override
-                    public int compare(Movie m1, Movie m2){
+                    public int compare(DBMovie m1, DBMovie m2){
                         return m1.getTitle().compareTo(m2.getTitle());
                     }
                 });
                 sortPref = 0;
                 break;
             case 1: //Sort Z-A
-                Collections.sort(movies,new Comparator<Movie>(){
+                Collections.sort(movies,new Comparator<DBMovie>(){
                     @Override
-                    public int compare(Movie m1, Movie m2){
+                    public int compare(DBMovie m1, DBMovie m2){
                         return m2.getTitle().compareTo(m1.getTitle());
                     }
                 });
                 sortPref = 1;
                 break;
             case 2: //Sort by year ascending
-                Collections.sort(movies,new Comparator<Movie>(){
+                Collections.sort(movies,new Comparator<DBMovie>(){
                     @Override
-                    public int compare(Movie m1, Movie m2){
+                    public int compare(DBMovie m1, DBMovie m2){
                         String y1 = m1.getReleaseDate().substring(0,4);
                         String y2 = m2.getReleaseDate().substring(0,4);
-                        if(!y1.equals(y2)) return y1.compareTo(y2);
-                        return y1.compareTo(y2);
+                        if(y1.equals(y2)) return m1.getTitle().compareTo(m2.getTitle());
+                        else return y1.compareTo(y2);
                     }
                 });
                 sortPref = 2;
                 break;
             case 3: //Sort by year descending
-                Collections.sort(movies,new Comparator<Movie>(){
+                Collections.sort(movies,new Comparator<DBMovie>(){
                     @Override
-                    public int compare(Movie m1, Movie m2){
+                    public int compare(DBMovie m1, DBMovie m2){
                         String y1 = m1.getReleaseDate().substring(0,4);
                         String y2 = m2.getReleaseDate().substring(0,4);
-                        if(!y2.equals(y1)) return y2.compareTo(y1);
+                        if(y2.equals(y1)) return m1.getTitle().compareTo(m2.getTitle());
                         return y2.compareTo(y1);
                     }
                 });
                 sortPref = 3;
                 break;
             case 4: //Sort by rating descending
-                Collections.sort(movies,new Comparator<Movie>(){
+                Collections.sort(movies,new Comparator<DBMovie>(){
                     @Override
-                    public int compare(Movie m1, Movie m2){
-                        String r1 = Float.toString(m1.userRating);
-                        String r2 = Float.toString(m2.userRating);
-                        if(!r2.equals(r1)) return r2.compareTo(r1);
-                        return r2.compareTo(r1);
+                    public int compare(DBMovie m1, DBMovie m2){
+                        Float r1 = db.getRating(m1.getId()) * 10;
+                        Float r2 = db.getRating(m2.getId()) * 10;
+                        if(r2.equals(r1)) return m1.getTitle().compareTo(m2.getTitle());
+                        else return (int) (r2-r1);
                     }
                 });
                 sortPref = 4;
                 break;
             case 5: //Sort by rating ascending
-                Collections.sort(movies,new Comparator<Movie>(){
+                Collections.sort(movies,new Comparator<DBMovie>(){
                     @Override
-                    public int compare(Movie m1, Movie m2){
-                        String r1 = Float.toString(m1.userRating);
-                        String r2 = Float.toString(m2.userRating);
-                        if(!r1.equals(r2)) return r1.compareTo(r2);
-                        return r1.compareTo(r2);
+                    public int compare(DBMovie m1, DBMovie m2){
+                        Float r1 = db.getRating(m1.getId()) * 10;
+                        Float r2 = db.getRating(m2.getId()) * 10;
+                        if(r2.equals(r1)) return m1.getTitle().compareTo(m2.getTitle());
+                        else return (int) (r1-r2);
                     }
                 });
                 sortPref = 5;
@@ -596,7 +464,7 @@ public class MovieFragment extends Fragment implements SearchView.OnQueryTextLis
             default:
                 break;
         }
-        //mAdapter.updateList(movies);
+        mAdapter.updateList(movies);
     }
 
     public int getSortPref(){
@@ -606,31 +474,11 @@ public class MovieFragment extends Fragment implements SearchView.OnQueryTextLis
     @Override
     public void onResume(){
         super.onResume();
-        /*getData();
-        if(movies.size()>1) sortMovies(sortPref);
-        mAdapter.updateList(movies);*/
-    }
+        if(movies!=null) {
+            if (movies.size() > 1) sortMovies(sortPref);
+            mAdapter.updateList(movies);
+        }
 
-    private void getMovieIdsFromFireBase(){
-        if(connectedToNetwork()) {
-            mFirebaseDatabaseReference.child("users").child(mFirebaseUser.getUid()).child("movieIDs").addListenerForSingleValueEvent(new ValueEventListener() {
-                @Override
-                public void onDataChange(DataSnapshot snapshot) {
-                    for (DataSnapshot child : snapshot.getChildren()) {
-                        if (!movieIds.contains(child.getKey())) {
-                            movieIds.add(child.getKey());
-                        }
-                      }
-                    }
-                @Override
-                public void onCancelled(DatabaseError databaseError) {
-                    Log.e("error adding to user", databaseError.toString());
-                }
-            });
-        }
-        else{
-            Toast.makeText(getActivity(),"No internet connection",Toast.LENGTH_LONG).show();
-        }
     }
 
     private boolean connectedToNetwork() {
@@ -643,7 +491,6 @@ public class MovieFragment extends Fragment implements SearchView.OnQueryTextLis
                 connected = true;
             }
         }
-        Log.e(TAG,"Connected to network = "+connected);
         return connected;
     }
 

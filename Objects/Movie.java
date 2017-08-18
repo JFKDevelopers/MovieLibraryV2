@@ -64,7 +64,7 @@ public class Movie implements Serializable, Parcelable {
     @SerializedName("credits")
     private final Credits credits;
     @SerializedName("user_rating")
-    public float userRating;
+    private float userRating;
 
     public Movie(boolean adult, String backdropPath, BelongsToCollection belongsToCollection, long budget,
                  List<Genres> genres, String homepage, int id, String imdbId, String originalLanguage,
@@ -73,32 +73,32 @@ public class Movie implements Serializable, Parcelable {
                  String releaseDate, int revenue, int runtime, List<SpokenLanguages> spokenLanguages,
                  String status, String tagline, String title, boolean video, double voteAverage, int voteCount, Credits credits, float userRating) {
         this.adult = adult;
-        this.backdropPath = backdropPath;
         this.belongsToCollection = belongsToCollection;
         this.budget = budget;
         this.genres = genres;
-        this.homepage = homepage;
         this.id = id;
-        this.imdbId = imdbId;
-        this.originalLanguage = originalLanguage;
-        this.originalTitle = originalTitle;
-        this.overview = overview;
         this.popularity = popularity;
-        this.posterPath = posterPath;
         this.productionCompanies = productionCompanies;
         this.productionCountries = productionCountries;
-        this.releaseDate = releaseDate;
         this.revenue = revenue;
         this.runtime = runtime;
         this.spokenLanguages = spokenLanguages;
-        this.status = status;
-        this.tagline = tagline;
-        this.title = title;
         this.video = video;
         this.voteAverage = voteAverage;
         this.voteCount = voteCount;
         this.credits = credits;
         this.userRating = userRating;
+        this.backdropPath= backdropPath==null? "null":backdropPath;
+        this.homepage= homepage==null? "null":homepage;
+        this.imdbId= imdbId==null? "null":imdbId;
+        this.originalLanguage= originalLanguage==null? "null":originalLanguage;
+        this.originalTitle= originalTitle==null? "null":originalTitle;
+        this.overview= overview==null? "null":overview;
+        this.posterPath= posterPath==null? "null":posterPath;
+        this.releaseDate= releaseDate==null? "null":releaseDate;
+        this.status= status==null? "null":status;
+        this.tagline= tagline==null? "null":tagline;
+        this.title= title==null? "null":title;
     }
 
     public Movie() {
@@ -106,7 +106,8 @@ public class Movie implements Serializable, Parcelable {
     }
 
     public String getBackdropPath() {
-        return backdropPath;
+        if (backdropPath == null) return "null";
+        else return backdropPath;
     }
 
     public List<Genres> getGenres() {
@@ -126,7 +127,8 @@ public class Movie implements Serializable, Parcelable {
     }
 
     public String getPosterPath() {
-        return posterPath;
+        if(posterPath== null) return "null";
+        else return posterPath;
     }
 
     public String getReleaseDate() {
@@ -138,7 +140,8 @@ public class Movie implements Serializable, Parcelable {
     }
 
     public String getTagline() {
-        return tagline;
+        if(tagline==null||tagline.equals("null")) return "N/A";
+        else return tagline;
     }
 
     public String getTitle() {
@@ -150,17 +153,21 @@ public class Movie implements Serializable, Parcelable {
     }
 
     public List<Cast> getCast() {
-        return credits.getCast();
+        if(credits==null) return null;
+        else return credits.getCast();
     }
 
     private List<Crew> getCrew(){
-        return credits.getCrew();
+        if(credits==null) return null;
+        else return credits.getCrew();
     }
 
     public String getDirector(){
-        for(Crew c:getCrew()){
-            if(c.job.equals("Director")){
-                return c.name;
+        if(getCrew()!=null) {
+            for (Crew c : getCrew()) {
+                if (c.job.equals("Director")) {
+                    return c.name;
+                }
             }
         }
         return "N/A";
@@ -271,16 +278,20 @@ public class Movie implements Serializable, Parcelable {
         ProductionCompanies p1 = new ProductionCompanies();
         ProductionCountries p2 = new ProductionCountries();
         SpokenLanguages s = new SpokenLanguages();
-
+        String backDropPathStr = this.backdropPath!=null? this.backdropPath.replace("\"","\\\""):"null";
+        String posterPathStr = this.posterPath!=null? this.posterPath.replace("\"","\\\""):"null";
         String belongsToCollectionStr = this.belongsToCollection!=null?this.belongsToCollection.toString():"null";
         String genreStr = this.genres != null? g.toString(this.genres):"null";
         String prodCoStr = this.productionCompanies !=null ?  p1.toString(this.productionCompanies):"null";
         String prodCnStr = this.productionCountries !=null ?  p2.toString(this.productionCountries):"null";
         String spokenLngStr = this.spokenLanguages !=null ? s.toString(this.spokenLanguages):"null";
-        String creditStr = this.credits !=null ? this.credits.toString():"null";
-        String backdroppathStr = this.backdropPath !=null ? this.backdropPath.replace("\"","\\\""):"null";
+        String creditStr = "";
+        if(this.getCast().size()>0 && this.getCrew().size()>0) {
+            creditStr = ",\"credits\":";
+            creditStr += this.credits != null ? this.credits.toString() : "null";
+        }
         String out = "{\"adult\":"+this.adult+","+
-                "\"backdrop_path\":\""+backdroppathStr+"\","+
+                "\"backdrop_path\":\""+backDropPathStr+"\","+
                 "\"belongs_to_collection\":"+belongsToCollectionStr+","+
                 "\"budget\":"+this.budget+","+
                 "\"genres\":"+genreStr+","+
@@ -291,7 +302,7 @@ public class Movie implements Serializable, Parcelable {
                 "\"original_title\":\""+this.originalTitle.replace("\"","\\\"")+"\","+
                 "\"overview\":\""+this.overview.replace("\"","\\\"")+"\","+
                 "\"popularity\":"+this.popularity+","+
-                "\"poster_path\":\""+this.posterPath.replace("\"","\\\"")+"\","+
+                "\"poster_path\":\""+posterPathStr+"\","+
                 "\"production_companies\":"+prodCoStr+","+
                 "\"production_countries\":"+prodCnStr+","+
                 "\"release_date\":\""+this.releaseDate.replace("\"","\\\"")+"\","+
@@ -303,8 +314,8 @@ public class Movie implements Serializable, Parcelable {
                 "\"title\":\""+this.title.replace("\"","\\\"")+"\","+
                 "\"video\":"+this.video+","+
                 "\"vote_average\":"+this.voteAverage+","+
-                "\"vote_count\":"+this.voteCount+","+
-                "\"credits\":"+creditStr+"}";
+                "\"vote_count\":"+this.voteCount+
+                creditStr+"}";
         out = out.replace("\"null\"","null");
         return out;
     }
@@ -343,6 +354,9 @@ public class Movie implements Serializable, Parcelable {
             else return out + "]";
         }
 
+        public String getName() {
+            return name;
+        }
     }
 
     public static class ProductionCompanies implements Serializable{
@@ -445,30 +459,35 @@ public class Movie implements Serializable, Parcelable {
 
         @Override
         public String toString(){
-            String out = "{\"cast\":[";
-            for(Cast c: cast){
-                out = out + "{\"cast_id\":"+c.cast_id+","+
-                        "\"character\":\""+c.character.replace("\"","\\\"")+"\","+
-                        "\"credit_id\":\""+c.credit_id+"\","+
-                        "\"id\":"+c.id+","+
-                        "\"name\":\""+c.name+"\","+
-                        "\"order\":"+c.order+","+
-                        "\"profile_path\":\""+c.profile_path+"\"},";
-            }
+            String out = "";
+            if(cast.size()>0) {
+                out = "{\"cast\":[";
+                for (Cast c : cast) {
+                    out = out + "{\"cast_id\":" + c.cast_id + "," +
+                            "\"character\":\"" + c.character.replace("\"", "\\\"") + "\"," +
+                            "\"credit_id\":\"" + c.credit_id + "\"," +
+                            "\"id\":" + c.id + "," +
+                            "\"name\":\"" + c.name + "\"," +
+                            "\"order\":" + c.order + "," +
+                            "\"profile_path\":\"" + c.profile_path + "\"},";
+                }
 
-            if(cast.size()>0) out = out.substring(0,out.length()-1) + "],\"crew\":[";
-            else out = out + "],";
-
-            for(Crew c: crew){
-                out = out + "{\"credit_id\":\""+c.credit_id+"\","+
-                        "\"department\":\""+c.department+"\","+
-                        "\"id\":"+c.id+","+
-                        "\"job\":\""+c.job+"\","+
-                        "\"name\":\""+c.name+"\","+
-                        "\"profile_path\":\""+c.profile_path+"\"},";
+                if (cast.size() > 0) out = out.substring(0, out.length() - 1);
+                out = out + "],";
             }
-            if(cast.size()>0) out = out.substring(0,out.length()-1) + "]}";
-            else out = out + "]}";
+            if(crew.size()>0) {
+                out = out + "\"crew\":[";
+                for (Crew c : crew) {
+                    out = out + "{\"credit_id\":\"" + c.credit_id + "\"," +
+                            "\"department\":\"" + c.department + "\"," +
+                            "\"id\":" + c.id + "," +
+                            "\"job\":\"" + c.job + "\"," +
+                            "\"name\":\"" + c.name + "\"," +
+                            "\"profile_path\":\"" + c.profile_path + "\"},";
+                }
+                if (crew.size() > 0) out = out.substring(0, out.length() - 1) + "]}";
+                else out = out + "]}";
+            }
             return out;
         }
     }

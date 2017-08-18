@@ -101,7 +101,7 @@ public class BasicMovie implements Serializable, Parcelable
         this.userRating = userRating;
     }
 
-    protected BasicMovie(Parcel in) {
+    private BasicMovie(Parcel in) {
         this.posterPath = in.readString();
         this.adult = in.readByte() != 0;
         this.overview = in.readString();

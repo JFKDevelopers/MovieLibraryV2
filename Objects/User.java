@@ -1,7 +1,5 @@
 package jfkdevelopers.navdrawertestapp.Objects;
 
-import android.net.Uri;
-
 import com.google.firebase.database.IgnoreExtraProperties;
 
 @IgnoreExtraProperties

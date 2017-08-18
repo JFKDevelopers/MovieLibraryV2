@@ -3,7 +3,6 @@ package jfkdevelopers.navdrawertestapp.Adapters;
 import android.content.Context;
 import android.content.Intent;
 import android.support.annotation.Nullable;
-import android.support.design.widget.Snackbar;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.RecyclerView;
 import android.util.SparseArray;
@@ -15,10 +14,6 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.bumptech.glide.Glide;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,23 +29,16 @@ import jfkdevelopers.navdrawertestapp.Objects.BasicMovie;
 import jfkdevelopers.navdrawertestapp.R;
 
 public class BasicMovieAdapter extends RecyclerView.Adapter<BasicMovieAdapter.ViewHolder>{
-    public final static String SER_KEY = "com.jfkdevelopers.navdrawertestapp.ser";
-    private static final int PENDING_REMOVAL_TIMEOUT = 3000; //3 sec
     private List<BasicMovie> movies;
-    private final List<BasicMovie> moviesPendingRemoval;
     private final Context context;
     private final SparseArray<BasicMovie> movieMap = new SparseArray<>();
     private final SparseArray<String> genreMap = new SparseArray<>();
     private final Fragment fragment;
-    private DatabaseHandler db;
-    private DatabaseReference mDatabase;
-    private FirebaseAuth mFirebaseAuth;
-    private FirebaseUser mFirebaseUser;
-    private List<Integer> movieIds;
+    private final DatabaseHandler db;
+
     public BasicMovieAdapter(Context context, ArrayList<BasicMovie> movies, @Nullable Fragment fragment) {
         this.movies = movies;
         this.context = context;
-        this.moviesPendingRemoval = new ArrayList<>();
         this.fragment = fragment;
         db = new DatabaseHandler(context);
     }
@@ -185,50 +173,6 @@ public class BasicMovieAdapter extends RecyclerView.Adapter<BasicMovieAdapter.Vi
         return movies.size();
     }
 
-    public void remove(final int position, final DatabaseHandler db, final RecyclerView rv){
-
-        mDatabase = FirebaseDatabase.getInstance().getReference();
-        mFirebaseAuth = FirebaseAuth.getInstance();
-        mFirebaseUser = mFirebaseAuth.getCurrentUser();
-        movieIds = new ArrayList<>();
-
-        final BasicMovie movie = movies.get(position);
-        if(!moviesPendingRemoval.contains(movie)){
-            moviesPendingRemoval.add(movie);
-        }
-        if(movies.contains(movie) && fragment instanceof MovieFragment){
-            Snackbar snackbar;
-            if(moviesPendingRemoval.size()==1)
-                snackbar = Snackbar.make(rv, movies.get(position).getTitle() + " deleted", 5000);
-            else
-                snackbar = Snackbar.make(rv, moviesPendingRemoval.size() + " movies deleted", 5000);
-
-                    snackbar.setAction(context.getString(R.string.undo),new View.OnClickListener(){
-                        @Override
-                        public void onClick(View view) {
-                            for(BasicMovie m : moviesPendingRemoval) {
-                                movies.add(position, m);
-                                db.addMovie(m.getId(), m.toJsonString());
-                                notifyDataSetChanged();
-                                rv.scrollToPosition(position);
-                            }
-                            moviesPendingRemoval.clear();
-                            ((MovieFragment) fragment).sortMovies(((MovieFragment) fragment).getSortPref());
-                        }
-                    });
-            snackbar.show();
-            mDatabase.child("users").child(mFirebaseUser.getUid()).child("movieIDs").child(Integer.toString(movies.get(position).getId())).removeValue();
-            db.deleteMovie(movies.get(position));
-            movies.remove(position);
-            notifyItemRemoved(position);
-        }
-    }
-
-    public void updateList(List<BasicMovie> mList){
-        movies = mList;
-        notifyDataSetChanged();
-    }
-
     private void setGenres(){
         genreMap.put(28,"Action");
         genreMap.put(12,"Adventure");
@@ -250,22 +194,4 @@ public class BasicMovieAdapter extends RecyclerView.Adapter<BasicMovieAdapter.Vi
         genreMap.put(10752,"War");
         genreMap.put(37,"Western");
     }
-
-    /*
-    public MovieAdapter(){
-        this.moviesPendingRemoval = new ArrayList<>();
-    }
-
-       public void setClickListener(ItemClickListener itemClickListener){
-        this.clickListener = itemClickListener;
-    }
-
-      private void setAnimation(View viewToAnimate, int position){
-        if(position>lastPosition){
-            Animation animation = AnimationUtils.loadAnimation(context,android.R.anim.slide_in_left);
-            viewToAnimate.startAnimation(animation);
-            lastPosition = position;
-        }
-    }
-    */
 }
